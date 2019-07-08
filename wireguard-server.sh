@@ -124,7 +124,7 @@ else
 function test-connectivity-v6() {
   ## Test outward facing IPV6
   if [ "$SERVER_HOST_V6" == "" ]; then
-    SERVER_HOST_V6="$(ip -6 addr | grep inet6 | awk '{ print $2}' | cut -d "/" -f1 | grep -v ^::1 | grep -v ^fe80)"
+    SERVER_HOST_V6="$(ip -6 addr | grep inet6 | awk '{ print $2}' | cut -d '/' -f1 | grep -v ^::1 | grep -v ^fe80)"
     if [ "$INTERACTIVE" == "yes" ]; then
       read -rp "System public IPV6 address is $SERVER_HOST_V6. Is that correct? [y/n]: " -e -i "$IPV6_SUGGESTION" CONFIRM
       if [ "$CONFIRM" == "n" ]; then
