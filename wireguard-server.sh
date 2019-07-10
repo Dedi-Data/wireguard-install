@@ -60,6 +60,16 @@ function dist-check() {
 ## Check distro
 dist-check
 
+## Check iptables
+function check-iptables() {
+## Check if iptables is exist
+if [ ! `iptables --help` ]; then
+  echo "This installer requite iptables, Please install iptables and configure it according to your server configurations and run this installer again";
+  # TODO: may be we can install iptables for him !
+  exit
+fi
+}
+
 ## WG Configurator
   WG_CONFIG="/etc/wireguard/wg0.conf"
   if [ ! -f "$WG_CONFIG" ]; then
@@ -411,7 +421,7 @@ fi
 
   function check-firewalld() {
   ## Check if firewalld is exist
-  if [[ `firewalld --help` ]]; then
+  if [ `firewalld --help` ]; then
     FIREWALLD_INSTALLED = true
   else
     FIREWALLD_INSTALLED = false
