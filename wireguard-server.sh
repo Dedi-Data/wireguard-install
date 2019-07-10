@@ -411,7 +411,7 @@ fi
 
   function check-firewalld() {
   ## Check if firewalld is exist
-  if [ `systemctl is-active firewalld` ]; then
+  if [[ `firewalld --help` ]]; then
     FIREWALLD_INSTALLED = true
   else
     FIREWALLD_INSTALLED = false
