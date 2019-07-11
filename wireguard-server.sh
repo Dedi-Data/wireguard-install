@@ -1,6 +1,5 @@
 #!/bin/bash
 # Secure WireGuard For CentOS, Debian, Ubuntu, Raspbian, Arch, Fedora, Redhat
-# https://github.com/LiveChief/wireguard-install
 
 ## Check Root
 function root-check() {
@@ -147,6 +146,14 @@ function test-connectivity-v6() {
   ## Get IPV6
   test-connectivity-v6
 
+  # Detect public interface and pre-fill for the user
+  function detect-nic() {
+    SERVER_PUB_NIC="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)"
+    read -rp "Public interface: " -e -i "$SERVER_PUB_NIC" SERVER_PUB_NIC
+  }
+
+  detect-nic
+  
   ## Determine host port
   function set-port() {
     echo "What port do you want WireGuard server to listen to?"
@@ -263,16 +270,21 @@ mtu-set
     done
     case $DISABLE_HOST in
     1)
-    DISABLE_HOST="sysctl --system"
+    DISABLE_HOST="$(echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/wireguard.conf
+    echo "net.ipv6.conf.all.forwarding=1" >> /etc/sysctl.d/wireguard.conf
+    sysctl --system)"
     ;;
     2)
-    DISABLE_HOST="$(sysctl -w net.ipv4.conf.all.disable_ipv4=1
-    sysctl -w net.ipv4.conf.default.disable_ipv4=1
+    DISABLE_HOST="$(echo "net.ipv4.conf.all.disable_ipv4=1" >> /etc/sysctl.d/wireguard.conf
+    echo "net.ipv4.conf.default.disable_ipv4=1" >> /etc/sysctl.d/wireguard.conf
+    echo "net.ipv6.conf.all.forwarding=1" >> /etc/sysctl.d/wireguard.conf
     sysctl --system)"
     ;;
     3)
-    DISABLE_HOST="$(sysctl -w net.ipv6.conf.all.disable_ipv6=1
-    sysctl -w net.ipv6.conf.default.disable_ipv6=1
+    DISABLE_HOST="$(echo "net.ipv6.conf.all.disable_ipv6 = 1" >> /etc/sysctl.d/wireguard.conf
+    echo "net.ipv6.conf.default.disable_ipv6 = 1" >> /etc/sysctl.d/wireguard.conf
+    echo "net.ipv6.conf.lo.disable_ipv6 = 1" >> /etc/sysctl.d/wireguard.conf
+    echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/wireguard.conf
     sysctl --system)"
     ;;
     esac
@@ -373,13 +385,13 @@ fi
     apt-get install software-properties-common -y
     add-apt-repository ppa:wireguard/wireguard -y
     apt-get update
-    apt-get install wireguard qrencode ntpdate linux-headers-"$(uname -r)" haveged iptables-persistent -y
+    apt-get install wireguard qrencode ntpdate linux-headers-"$(uname -r)" haveged -y
   elif [ "$DISTRO" == "Debian" ]; then
     apt-get update
     echo "deb http://deb.debian.org/debian/ unstable main" > /etc/apt/sources.list.d/unstable.list
     printf 'Package: *\nPin: release a=unstable\nPin-Priority: 90\n' > /etc/apt/preferences.d/limit-unstable
     apt-get update
-    apt-get install wireguard qrencode ntpdate linux-headers-"$(uname -r)" haveged iptables-persistent -y
+    apt-get install wireguard qrencode ntpdate linux-headers-"$(uname -r)" haveged -y
   elif [ "$DISTRO" == "Raspbian" ]; then
     apt-get update
     echo "deb http://deb.debian.org/debian/ unstable main" > /etc/apt/sources.list.d/unstable.list
@@ -387,7 +399,7 @@ fi
     apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 04EE7237B7D453EC
     printf 'Package: *\nPin: release a=unstable\nPin-Priority: 90\n' > /etc/apt/preferences.d/limit-unstable
     apt-get update
-    apt-get install wireguard qrencode ntpdate raspberrypi-kernel-headers haveged iptables-persistent -y
+    apt-get install wireguard qrencode ntpdate raspberrypi-kernel-headers haveged -y
   elif [ "$DISTRO" == "Arch" ]; then
     pacman -S linux-headers wireguard-dkms wireguard-tools haveged qrencode ntp
   elif [ "$DISTRO" = 'Fedora' ]; then
@@ -435,9 +447,6 @@ fi
   ## Firewall Rules
   if [ "$DISTRO" == "CentOS" ] || [ "$DISTRO" == "Arch" ] || [ "$DISTRO" == "Fedora" ] || [ "$DISTRO" == "Redhat" ]; then
 	if [ "$FIREWALLD_INSTALLED" == "true" ]; then
-      firewall-cmd --zone=public --add-port=$SERVER_PORT/udp
-      firewall-cmd --zone=trusted --add-source=$PRIVATE_SUBNET_V4
-      firewall-cmd --zone=trusted --add-source=$PRIVATE_SUBNET_V6
       firewall-cmd --permanent --zone=public --add-port=$SERVER_PORT/udp
       firewall-cmd --permanent --zone=trusted --add-source=$PRIVATE_SUBNET_V4
       firewall-cmd --permanent --zone=trusted --add-source=$PRIVATE_SUBNET_V6
@@ -445,6 +454,7 @@ fi
       firewall-cmd --direct --add-rule ipv6 nat POSTROUTING 0 -s $PRIVATE_SUBNET_V6 ! -d $PRIVATE_SUBNET_V6 -j SNAT --to $SERVER_HOST_V6
       firewall-cmd --permanent --direct --add-rule ipv4 nat POSTROUTING 0 -s $PRIVATE_SUBNET_V4 ! -d $PRIVATE_SUBNET_V4 -j SNAT --to $SERVER_HOST_V4
       firewall-cmd --permanent --direct --add-rule ipv6 nat POSTROUTING 0 -s $PRIVATE_SUBNET_V6 ! -d $PRIVATE_SUBNET_V6 -j SNAT --to $SERVER_HOST_V6
+	  firewall-cmd --reload
 	fi
   elif [ "$DISTRO" == "Debian" ] || [ "$DISTRO" == "Ubuntu" ] || [ "$DISTRO" == "Raspbian" ]; then
     iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
@@ -644,13 +654,35 @@ echo "# $PRIVATE_SUBNET_V4 $PRIVATE_SUBNET_V6 $SERVER_HOST:$SERVER_PORT $SERVER_
 Address = $GATEWAY_ADDRESS_V4/$PRIVATE_SUBNET_MASK_V4,$GATEWAY_ADDRESS_V6/$PRIVATE_SUBNET_MASK_V6
 ListenPort = $SERVER_PORT
 PrivateKey = $SERVER_PRIVKEY
+PostUp = "\
+"iptables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
+"iptables -A FORWARD -i %i -j ACCEPT; "\
+"iptables -A FORWARD -o %i -j ACCEPT; " > $WG_CONFIG
+if [ "$SERVER_HOST_V6" != '' ]; then
+  echo \
+  "ip6tables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE;"\
+  "ip6tables -A FORWARD -i %i -j ACCEPT;"\
+  "ip6tables -A FORWARD -o %i -j ACCEPT;" >> $WG_CONFIG
+fi
+echo "
+PostDown = "\
+"iptables -t nat -D POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE;"\
+"iptables -D FORWARD -i %i -j ACCEPT;"\
+"iptables -D FORWARD -o %i -j ACCEPT;"  >> $WG_CONFIG
+if [ "$SERVER_HOST_V6" != '' ]; then
+  echo \
+  "ip6tables -t nat -D POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE;"\
+  "ip6tables -D FORWARD -i %i -j ACCEPT;"\
+  "ip6tables -D FORWARD -o %i -j ACCEPT;"  >> $WG_CONFIG
+fi
+echo "
 SaveConfig = false
 # $CLIENT_NAME start
 [Peer]
 PublicKey = $CLIENT_PUBKEY
 PresharedKey = $PRESHARED_KEY
 AllowedIPs = $CLIENT_ADDRESS_V4/32,$CLIENT_ADDRESS_V6/128
-# $CLIENT_NAME end" > $WG_CONFIG
+# $CLIENT_NAME end" >> $WG_CONFIG
 
 echo "# $CLIENT_NAME
 [Interface]
