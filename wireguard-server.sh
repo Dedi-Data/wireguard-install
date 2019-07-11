@@ -62,10 +62,10 @@ dist-check
 ## Check iptables
 function check-iptables() {
 ## Check if iptables is exist
-if [ ! `iptables --help` ]; then
+if [[ ! `iptables --help` ]]; then
   echo "This installer requite iptables, Please install iptables and configure it according to your server configurations and run this installer again";
   # TODO: may be we can install iptables for him !
-  exit
+  #exit
 fi
 }
 
@@ -430,7 +430,7 @@ fi
 
   function check-firewalld() {
   ## Check if firewalld is exist
-  if [ `firewalld --help` ]; then
+  if [[ `firewalld --help` ]]; then
     FIREWALLD_INSTALLED="true"
   else
     FIREWALLD_INSTALLED="false"
