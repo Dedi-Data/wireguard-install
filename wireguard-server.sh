@@ -543,6 +543,7 @@ fi
     sed -i 's|use-caps-for-id: no|use-caps-for-id: yes|' /etc/unbound/unbound.conf
     # Firewall Rule For Unbound
 	if [ "$FIREWALLD_INSTALLED" == "true" ]; then
+	  firewall-cmd --add-service=dns
       firewall-cmd --add-service=dns --permanent
 	fi
   elif [[ "$DISTRO" = "Fedora" ]]; then
@@ -554,6 +555,7 @@ fi
     sed -i 's|use-caps-for-id: no|use-caps-for-id: yes|' /etc/unbound/unbound.conf
     # Firewall Rule For Unbound
 	if [ "$FIREWALLD_INSTALLED" == "true" ]; then
+	  firewall-cmd --add-service=dns
       firewall-cmd --add-service=dns --permanent
 	fi
   elif [[ "$DISTRO" = "Arch" ]]; then
@@ -578,6 +580,7 @@ fi
     prefetch: yes' > /etc/unbound/unbound.conf
     # Firewall Rule For Unbound
 	if [ "$FIREWALLD_INSTALLED" == "true" ]; then
+	  firewall-cmd --add-service=dns
       firewall-cmd --add-service=dns --permanent
 	fi
   fi
