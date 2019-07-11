@@ -134,11 +134,13 @@ function test-connectivity-v6() {
   ## Test outward facing IPV6
   if [ "$SERVER_HOST_V6" == "" ]; then
     SERVER_HOST_V6="$(ip -6 addr | grep inet6 | awk '{ print $2}' | cut -d '/' -f1 | grep -v ^::1 | grep -v ^fe80)"
-    if [ "$INTERACTIVE" == "yes" ]; then
+    if [ "$INTERACTIVE" == "yes" ] && [ "$SERVER_HOST_V6" != "" ]; then
       read -rp "System public IPV6 address is $SERVER_HOST_V6. Is that correct? [y/n]: " -e -i "$IPV6_SUGGESTION" CONFIRM
       if [ "$CONFIRM" == "n" ]; then
         echo "Aborted. Use environment variable SERVER_HOST_V6 to set the correct public IP address."
       fi
+	else
+	  echo "We couldn't detect your IPV6, So we use your IPV4 as your server address !"
     fi
   fi
 }
@@ -240,20 +242,24 @@ mtu-set
 
   ## What ip version would you like to be available on this VPN?
   function ipvx-select() {
-    echo "What IPv do you want to use to connect to WireGuard server?"
-    echo "   1) IPv4 (Recommended)"
-    echo "   2) IPv6 (Advanced)"
-    until [[ "$SERVER_HOST" =~ ^[1-2]$ ]]; do
-      read -rp "IP Choice [1-2]: " -e -i 1 SERVER_HOST
-    done
-    case $SERVER_HOST in
-    1)
-    SERVER_HOST="$SERVER_HOST_V4"
-    ;;
-    2)
-    SERVER_HOST="[$SERVER_HOST_V6]"
-    ;;
-    esac
+	if [ "$SERVER_HOST_V6" != "" ]; then
+		echo "What IPv do you want to use to connect to WireGuard server?"
+		echo "   1) IPv4 (Recommended)"
+		echo "   2) IPv6 (Advanced)"
+		until [[ "$SERVER_HOST" =~ ^[1-2]$ ]]; do
+		  read -rp "IP Choice [1-2]: " -e -i 1 SERVER_HOST
+		done
+		case $SERVER_HOST in
+		1)
+		SERVER_HOST="$SERVER_HOST_V4"
+		;;
+		2)
+		SERVER_HOST="[$SERVER_HOST_V6]"
+		;;
+		esac
+	else
+		SERVER_HOST="$SERVER_HOST_V4"
+	fi
   }
 
   ## IPv4 or IPv6 Selector
@@ -809,10 +815,10 @@ fi
     rm -rf /etc/unbound
     rm -rf /etc/qrencode
     rm /etc/sysctl.d/wireguard.conf
-    rm /etc/wireguard/wg0.conf
-    rm /etc/unbound/unbound.conf
-    rm /etc/ntp.conf
-    rm /etc/default/haveged
+    rm /etc/wireguard/wg0.conf > /dev/null
+    rm /etc/unbound/unbound.conf > /dev/null
+    rm /etc/ntp.conf > /dev/null
+    rm /etc/default/haveged > /dev/null
     ;;
     4)
     exit
