@@ -638,9 +638,9 @@ if [ "$SERVER_HOST_V6" != '' ]; then
 fi
 if [ "$FIREWALLD_INSTALLED" == "true" ]; then
   echo -n \
-  "firewall-cmd --permanent --zone=public --add-port=$SERVER_PORT/udp; "\
-  "firewall-cmd --permanent --zone=trusted --add-source=$PRIVATE_SUBNET_V4; "\
-  "firewall-cmd --permanent --zone=trusted --add-source=$PRIVATE_SUBNET_V6; "\
+  "firewall-cmd --zone=public --add-port=$SERVER_PORT/udp; "\
+  "firewall-cmd --zone=trusted --add-source=$PRIVATE_SUBNET_V4; "\
+  "firewall-cmd --zone=trusted --add-source=$PRIVATE_SUBNET_V6; "\
   >> $WG_CONFIG
 fi
 echo -n "
@@ -660,9 +660,9 @@ if [ "$SERVER_HOST_V6" != '' ]; then
 fi
 if [ "$FIREWALLD_INSTALLED" == "true" ]; then
   echo -n \
-  "firewall-cmd --permanent --zone=public --remove-port=$SERVER_PORT/udp; "\
-  "firewall-cmd --permanent --zone=trusted --remove-source=$PRIVATE_SUBNET_V4; "\
-  "firewall-cmd --permanent --zone=trusted --remove-source=$PRIVATE_SUBNET_V6; "\
+  "firewall-cmd --zone=public --remove-port=$SERVER_PORT/udp; "\
+  "firewall-cmd --zone=trusted --remove-source=$PRIVATE_SUBNET_V4; "\
+  "firewall-cmd --zone=trusted --remove-source=$PRIVATE_SUBNET_V6; "\
   >> $WG_CONFIG
 fi
 echo "
