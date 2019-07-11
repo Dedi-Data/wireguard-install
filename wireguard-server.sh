@@ -617,7 +617,7 @@ fi
     touch $WG_CONFIG && chmod 600 $WG_CONFIG
     ## Set Wireguard settings for this host and first peer.
 
-echo "# $PRIVATE_SUBNET_V4 $PRIVATE_SUBNET_V6 $SERVER_HOST:$SERVER_PORT $SERVER_PUBKEY $CLIENT_DNS $MTU_CHOICE $NAT_CHOICE $CLIENT_ALLOWED_IP
+echo -n "# $PRIVATE_SUBNET_V4 $PRIVATE_SUBNET_V6 $SERVER_HOST:$SERVER_PORT $SERVER_PUBKEY $CLIENT_DNS $MTU_CHOICE $NAT_CHOICE $CLIENT_ALLOWED_IP
 [Interface]
 Address = $GATEWAY_ADDRESS_V4/$PRIVATE_SUBNET_MASK_V4,$GATEWAY_ADDRESS_V6/$PRIVATE_SUBNET_MASK_V6
 ListenPort = $SERVER_PORT
@@ -629,7 +629,7 @@ PostUp = "\
 "iptables -A INPUT -p udp --dport $SERVER_PORT -j ACCEPT; "\
  > $WG_CONFIG
 if [ "$SERVER_HOST_V6" != '' ]; then
-  echo \
+  echo -n \
   "ip6tables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
   "ip6tables -A FORWARD -i %i -j ACCEPT; "\
   "ip6tables -A FORWARD -o %i -j ACCEPT; "\
@@ -637,28 +637,28 @@ if [ "$SERVER_HOST_V6" != '' ]; then
   >> $WG_CONFIG
 fi
 if [ "$FIREWALLD_INSTALLED" == "true" ]; then
-  echo \
+  echo -n \
   "firewall-cmd --permanent --zone=public --add-port=$SERVER_PORT/udp; "\
   "firewall-cmd --permanent --zone=trusted --add-source=$PRIVATE_SUBNET_V4; "\
   "firewall-cmd --permanent --zone=trusted --add-source=$PRIVATE_SUBNET_V6; "\
   "firewall-cmd --reload; "\
   >> $WG_CONFIG
 fi
-echo "
+echo -n "
 PostDown = "\
 "iptables -t nat -D POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
 "iptables -D FORWARD -i %i -j ACCEPT; "\
 "iptables -D FORWARD -o %i -j ACCEPT; "\
   >> $WG_CONFIG
 if [ "$SERVER_HOST_V6" != '' ]; then
-  echo \
+  echo -n \
   "ip6tables -t nat -D POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
   "ip6tables -D FORWARD -i %i -j ACCEPT; "\
   "ip6tables -D FORWARD -o %i -j ACCEPT; "\
   >> $WG_CONFIG
 fi
 if [ "$FIREWALLD_INSTALLED" == "true" ]; then
-  echo \
+  echo -n \
   "firewall-cmd --permanent --zone=public --remove-port=$SERVER_PORT/udp; "\
   "firewall-cmd --permanent --zone=trusted --remove-source=$PRIVATE_SUBNET_V4; "\
   "firewall-cmd --permanent --zone=trusted --remove-source=$PRIVATE_SUBNET_V6; "\
@@ -814,11 +814,11 @@ fi
     rm -rf /etc/wireguard/clients
     rm -rf /etc/unbound
     rm -rf /etc/qrencode
-    rm /etc/sysctl.d/wireguard.conf
-    rm /etc/wireguard/wg0.conf > /dev/null
-    rm /etc/unbound/unbound.conf > /dev/null
-    rm /etc/ntp.conf > /dev/null
-    rm /etc/default/haveged > /dev/null
+    rm -f /etc/sysctl.d/wireguard.conf
+    rm -f /etc/wireguard/wg0.conf
+    rm -f /etc/unbound/unbound.conf
+    rm -f /etc/ntp.conf
+    rm -f /etc/default/haveged
     ;;
     4)
     exit
