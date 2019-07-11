@@ -140,8 +140,8 @@ if [ ! -f "$WG_CONFIG" ]; then
 
   ## Detect public interface and pre-fill for the user
   function detect-nic() {
-    SERVER_PUB_NIC="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)"
-    read -rp "Public interface: " -e -i "$SERVER_PUB_NIC" SERVER_PUB_NIC
+    SERVER_PUB_NICKNAME="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)"
+    read -rp "Public interface: " -e -i "$SERVER_PUB_NICKNAME" SERVER_PUB_NICKNAME
   }
 
   detect-nic
@@ -716,9 +716,9 @@ AllowedIPs = $CLIENT_ALLOWED_IP
 Endpoint = $SERVER_HOST:$SERVER_PORT
 PersistentKeepalive = $NAT_CHOICE
 PresharedKey = $PRESHARED_KEY
-PublicKey = $SERVER_PUBKEY" >"/etc/wireguard/clients"/"$CLIENT_NAME"-wg0.conf
-    qrencode -t ansiutf8 -l L <"/etc/wireguard/clients"/"$CLIENT_NAME"-wg0.conf
-    echo "Client Config --> "/etc/wireguard/clients"/"$CLIENT_NAME"-wg0.conf"
+PublicKey = $SERVER_PUBKEY" >"/etc/wireguard/clients"/"$CLIENT_NAME"-"$SERVER_PUB_NICKNAME".conf
+    qrencode -t ansiutf8 -l L <"/etc/wireguard/clients"/"$CLIENT_NAME"-"$SERVER_PUB_NICKNAME".conf
+    echo "Client Config --> "/etc/wireguard/clients"/"$CLIENT_NAME"-"$SERVER_PUB_NICKNAME".conf"
     ## Restart WireGuard
     if pgrep systemd-journal; then
       systemctl enable wg-quick@wg0
@@ -785,9 +785,9 @@ AllowedIPs = $CLIENT_ALLOWED_IP
 Endpoint = $SERVER_HOST$SERVER_PORT
 PersistentKeepalive = $NAT_CHOICE
 PresharedKey = $PRESHARED_KEY
-PublicKey = $SERVER_PUBKEY" >"/etc/wireguard/clients"/"$NEW_CLIENT_NAME"-wg0.conf
-      qrencode -t ansiutf8 -l L <"/etc/wireguard/clients"/"$NEW_CLIENT_NAME"-wg0.conf
-      echo "Client config --> "/etc/wireguard/clients"/"$NEW_CLIENT_NAME"-wg0.conf"
+PublicKey = $SERVER_PUBKEY" >"/etc/wireguard/clients"/"$NEW_CLIENT_NAME"-"$SERVER_PUB_NICKNAME".conf
+      qrencode -t ansiutf8 -l L <"/etc/wireguard/clients"/"$NEW_CLIENT_NAME"-"$SERVER_PUB_NICKNAME".conf
+      echo "Client config --> "/etc/wireguard/clients"/"$NEW_CLIENT_NAME"-"$SERVER_PUB_NICKNAME".conf"
       if pgrep systemd-journal; then
         systemctl restart wg-quick@wg0
       else
@@ -817,18 +817,18 @@ PublicKey = $SERVER_PUBKEY" >"/etc/wireguard/clients"/"$NEW_CLIENT_NAME"-wg0.con
       read -rp "Do you really want to remove Wireguard? [y/n]:" -e -i n REMOVE_WIREGUARD
       if [ "$DISTRO" == "CentOS" ]; then
         wg-quick down wg0
-        yum remove wireguard qrencode ntpdate haveged unbound unbound-host -y
+        yum remove wireguard qrencode ntpdate haveged unbound unbound-host e2fsprogs -y
       elif [ "$DISTRO" == "Debian" ]; then
         wg-quick down wg0
-        apt-get remove --purge wireguard qrencode ntpdate haveged unbound unbound-host -y
+        apt-get remove --purge wireguard qrencode ntpdate haveged unbound unbound-host e2fsprogs -y
         apt-get autoremove -y
       elif [ "$DISTRO" == "Ubuntu" ]; then
         wg-quick down wg0
-        apt-get remove --purge wireguard qrencode ntpdate haveged unbound unbound-host -y
+        apt-get remove --purge wireguard qrencode ntpdate haveged unbound unbound-host e2fsprogs -y
         apt-get autoremove -y
       elif [ "$DISTRO" == "Raspbian" ]; then
         wg-quick down wg0
-        apt-get remove --purge wireguard qrencode ntpdate haveged unbound unbound-host dirmngr -y
+        apt-get remove --purge wireguard qrencode ntpdate haveged unbound unbound-host dirmngr e2fsprogs -y
         apt-get autoremove -y
       elif [ "$DISTRO" == "Arch" ]; then
         wg-quick down wg0
