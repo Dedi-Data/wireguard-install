@@ -146,7 +146,7 @@ function test-connectivity-v6() {
   ## Get IPV6
   test-connectivity-v6
 
-  # Detect public interface and pre-fill for the user
+  ## Detect public interface and pre-fill for the user
   function detect-nic() {
     SERVER_PUB_NIC="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)"
     read -rp "Public interface: " -e -i "$SERVER_PUB_NIC" SERVER_PUB_NIC
@@ -421,12 +421,6 @@ fi
 
   ## Install WireGuard
   install-wireguard
-
-  function ip-forwaring() {
-  echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/wireguard.conf
-  echo "net.ipv6.conf.all.forwarding=1" >> /etc/sysctl.d/wireguard.conf
-  sysctl --system
-}
 
   ## Ip Forwarding
   ip-forwaring
