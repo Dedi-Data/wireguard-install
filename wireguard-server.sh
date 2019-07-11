@@ -442,35 +442,6 @@ fi
  
   ## Check firewalld
   check-firewalld
-  
-  function install-firewall() {
-  ## Firewall Rules
-  if [ "$DISTRO" == "CentOS" ] || [ "$DISTRO" == "Arch" ] || [ "$DISTRO" == "Fedora" ] || [ "$DISTRO" == "Redhat" ]; then
-	if [ "$FIREWALLD_INSTALLED" == "true" ]; then
-      firewall-cmd --permanent --zone=public --add-port=$SERVER_PORT/udp
-      firewall-cmd --permanent --zone=trusted --add-source=$PRIVATE_SUBNET_V4
-      firewall-cmd --permanent --zone=trusted --add-source=$PRIVATE_SUBNET_V6
-      firewall-cmd --direct --add-rule ipv4 nat POSTROUTING 0 -s $PRIVATE_SUBNET_V4 ! -d $PRIVATE_SUBNET_V4 -j SNAT --to $SERVER_HOST_V4
-      firewall-cmd --direct --add-rule ipv6 nat POSTROUTING 0 -s $PRIVATE_SUBNET_V6 ! -d $PRIVATE_SUBNET_V6 -j SNAT --to $SERVER_HOST_V6
-      firewall-cmd --permanent --direct --add-rule ipv4 nat POSTROUTING 0 -s $PRIVATE_SUBNET_V4 ! -d $PRIVATE_SUBNET_V4 -j SNAT --to $SERVER_HOST_V4
-      firewall-cmd --permanent --direct --add-rule ipv6 nat POSTROUTING 0 -s $PRIVATE_SUBNET_V6 ! -d $PRIVATE_SUBNET_V6 -j SNAT --to $SERVER_HOST_V6
-	  firewall-cmd --reload
-	fi
-  elif [ "$DISTRO" == "Debian" ] || [ "$DISTRO" == "Ubuntu" ] || [ "$DISTRO" == "Raspbian" ]; then
-    iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-    ip6tables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-    iptables -A FORWARD -m conntrack --ctstate NEW -s $PRIVATE_SUBNET_V4 -m policy --pol none --dir in -j ACCEPT
-    ip6tables -A FORWARD -m conntrack --ctstate NEW -s $PRIVATE_SUBNET_V6 -m policy --pol none --dir in -j ACCEPT
-    iptables -t nat -A POSTROUTING -s $PRIVATE_SUBNET_V4 -m policy --pol none --dir out -j MASQUERADE
-    ip6tables -t nat -A POSTROUTING -s $PRIVATE_SUBNET_V6 -m policy --pol none --dir out -j MASQUERADE
-    iptables -A INPUT -p udp --dport $SERVER_PORT -j ACCEPT
-    ip6tables -A INPUT -p udp --dport $SERVER_PORT -j ACCEPT
-    iptables-save > /etc/iptables/rules.v4
-fi
-}
-
-  ## Install Firewall
-  install-firewall
 
   function install-unbound() {
     if [ "$INSTALL_UNBOUND" = "y" ]; then
@@ -657,23 +628,45 @@ PrivateKey = $SERVER_PRIVKEY
 PostUp = "\
 "iptables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
 "iptables -A FORWARD -i %i -j ACCEPT; "\
-"iptables -A FORWARD -o %i -j ACCEPT; " > $WG_CONFIG
+"iptables -A FORWARD -o %i -j ACCEPT; "\
+"iptables -A INPUT -p udp --dport $SERVER_PORT -j ACCEPT; "\
+ > $WG_CONFIG
 if [ "$SERVER_HOST_V6" != '' ]; then
   echo \
-  "ip6tables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE;"\
-  "ip6tables -A FORWARD -i %i -j ACCEPT;"\
-  "ip6tables -A FORWARD -o %i -j ACCEPT;" >> $WG_CONFIG
+  "ip6tables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
+  "ip6tables -A FORWARD -i %i -j ACCEPT; "\
+  "ip6tables -A FORWARD -o %i -j ACCEPT; "\
+  "ip6tables -A INPUT -p udp --dport $SERVER_PORT -j ACCEPT; "\
+  >> $WG_CONFIG
+fi
+if [ "$FIREWALLD_INSTALLED" == "true" ]; then
+  echo \
+  "firewall-cmd --permanent --zone=public --add-port=$SERVER_PORT/udp; "\
+  "firewall-cmd --permanent --zone=trusted --add-source=$PRIVATE_SUBNET_V4; "\
+  "firewall-cmd --permanent --zone=trusted --add-source=$PRIVATE_SUBNET_V6; "\
+  "firewall-cmd --reload; "\
+  >> $WG_CONFIG
 fi
 echo "
 PostDown = "\
-"iptables -t nat -D POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE;"\
-"iptables -D FORWARD -i %i -j ACCEPT;"\
-"iptables -D FORWARD -o %i -j ACCEPT;"  >> $WG_CONFIG
+"iptables -t nat -D POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
+"iptables -D FORWARD -i %i -j ACCEPT; "\
+"iptables -D FORWARD -o %i -j ACCEPT; "\
+  >> $WG_CONFIG
 if [ "$SERVER_HOST_V6" != '' ]; then
   echo \
-  "ip6tables -t nat -D POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE;"\
-  "ip6tables -D FORWARD -i %i -j ACCEPT;"\
-  "ip6tables -D FORWARD -o %i -j ACCEPT;"  >> $WG_CONFIG
+  "ip6tables -t nat -D POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
+  "ip6tables -D FORWARD -i %i -j ACCEPT; "\
+  "ip6tables -D FORWARD -o %i -j ACCEPT; "\
+  >> $WG_CONFIG
+fi
+if [ "$FIREWALLD_INSTALLED" == "true" ]; then
+  echo \
+  "firewall-cmd --permanent --zone=public --remove-port=$SERVER_PORT/udp; "\
+  "firewall-cmd --permanent --zone=trusted --remove-source=$PRIVATE_SUBNET_V4; "\
+  "firewall-cmd --permanent --zone=trusted --remove-source=$PRIVATE_SUBNET_V6; "\
+  "firewall-cmd --reload; "\
+  >> $WG_CONFIG
 fi
 echo "
 SaveConfig = false
@@ -828,7 +821,6 @@ fi
     rm /etc/wireguard/wg0.conf
     rm /etc/unbound/unbound.conf
     rm /etc/ntp.conf
-    rm /etc/iptables/rules.v4
     rm /etc/default/haveged
     ;;
     4)
