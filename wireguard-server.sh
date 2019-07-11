@@ -422,15 +422,12 @@ fi
   ## Install WireGuard
   install-wireguard
 
-  ## Ip Forwarding
-  ip-forwaring
-
   function check-firewalld() {
   ## Check if firewalld is exist
   if [ `firewalld --help` ]; then
-    FIREWALLD_INSTALLED = true
+    FIREWALLD_INSTALLED="true"
   else
-    FIREWALLD_INSTALLED = false
+    FIREWALLD_INSTALLED="false"
   fi
   }
  
