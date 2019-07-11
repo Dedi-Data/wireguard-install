@@ -623,16 +623,16 @@ Address = $GATEWAY_ADDRESS_V4/$PRIVATE_SUBNET_MASK_V4,$GATEWAY_ADDRESS_V6/$PRIVA
 ListenPort = $SERVER_PORT
 PrivateKey = $SERVER_PRIVKEY
 PostUp = "\
-"iptables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
 "iptables -A FORWARD -i %i -j ACCEPT; "\
 "iptables -A FORWARD -o %i -j ACCEPT; "\
+"iptables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
 "iptables -A INPUT -p udp --dport $SERVER_PORT -j ACCEPT; "\
  > $WG_CONFIG
 if [ "$SERVER_HOST_V6" != '' ]; then
   echo -n \
-  "ip6tables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
   "ip6tables -A FORWARD -i %i -j ACCEPT; "\
   "ip6tables -A FORWARD -o %i -j ACCEPT; "\
+  "ip6tables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
   "ip6tables -A INPUT -p udp --dport $SERVER_PORT -j ACCEPT; "\
   >> $WG_CONFIG
 fi
@@ -641,20 +641,21 @@ if [ "$FIREWALLD_INSTALLED" == "true" ]; then
   "firewall-cmd --permanent --zone=public --add-port=$SERVER_PORT/udp; "\
   "firewall-cmd --permanent --zone=trusted --add-source=$PRIVATE_SUBNET_V4; "\
   "firewall-cmd --permanent --zone=trusted --add-source=$PRIVATE_SUBNET_V6; "\
-  "firewall-cmd --reload; "\
   >> $WG_CONFIG
 fi
 echo -n "
 PostDown = "\
-"iptables -t nat -D POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
 "iptables -D FORWARD -i %i -j ACCEPT; "\
 "iptables -D FORWARD -o %i -j ACCEPT; "\
+"iptables -t nat -D POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
+"iptables -D INPUT -p udp --dport $SERVER_PORT -j ACCEPT; "\
   >> $WG_CONFIG
 if [ "$SERVER_HOST_V6" != '' ]; then
   echo -n \
-  "ip6tables -t nat -D POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
   "ip6tables -D FORWARD -i %i -j ACCEPT; "\
   "ip6tables -D FORWARD -o %i -j ACCEPT; "\
+  "ip6tables -t nat -D POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
+  "ip6tables -D INPUT -p udp --dport $SERVER_PORT -j ACCEPT; "\
   >> $WG_CONFIG
 fi
 if [ "$FIREWALLD_INSTALLED" == "true" ]; then
@@ -662,7 +663,6 @@ if [ "$FIREWALLD_INSTALLED" == "true" ]; then
   "firewall-cmd --permanent --zone=public --remove-port=$SERVER_PORT/udp; "\
   "firewall-cmd --permanent --zone=trusted --remove-source=$PRIVATE_SUBNET_V4; "\
   "firewall-cmd --permanent --zone=trusted --remove-source=$PRIVATE_SUBNET_V6; "\
-  "firewall-cmd --reload; "\
   >> $WG_CONFIG
 fi
 echo "
