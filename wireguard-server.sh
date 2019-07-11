@@ -454,7 +454,7 @@ if [ ! -f "$WG_CONFIG" ]; then
   function install-firewall() {
     if [ "$IPTABLES_INSTALLED" = "false" ]; then
       apt-get install iptables-persistent -y
-    elif [ "FIREWALLD_INSTALLED" = "false" ]; then
+    else [ "FIREWALLD_INSTALLED" = "false" ]; then
       dnf install firewalld -y
       yum install firewalld -y
       pacman -Rs firewalld -y
