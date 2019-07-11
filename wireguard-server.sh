@@ -4,21 +4,21 @@
 ## Check Root
 function root-check() {
   if [[ "$EUID" -ne 0 ]]; then
-    echo "Hello there non ROOT user, you need to run this as ROOT."
+    echo "Sorry, you need to run this as root user."
     exit
   fi
 }
 
- ## Root Check
+## Root Check
 root-check
 
 function virt-check() {
-  ## Deny OpenVZ
+## Deny OpenVZ
 if [ "$(systemd-detect-virt)" == "openvz" ]; then
     echo "OpenVZ virtualization is not supported (yet)."
     exit
   fi
-  ## Deny LXC
+## Deny LXC
 if [ "$(systemd-detect-virt)" == "lxc" ]; then
     echo "LXC virtualization is not supported (yet)."
     exit
@@ -59,16 +59,6 @@ function dist-check() {
 ## Check distro
 dist-check
 
-## Check iptables
-function check-iptables() {
-## Check if iptables is exist
-if [[ ! `iptables --help` ]]; then
-  echo "This installer requite iptables, Please install iptables and configure it according to your server configurations and run this installer again";
-  # TODO: may be we can install iptables for him !
-  #exit
-fi
-}
-
 ## WG Configurator
   WG_CONFIG="/etc/wireguard/wg0.conf"
   if [ ! -f "$WG_CONFIG" ]; then
@@ -81,7 +71,7 @@ fi
     GATEWAY_ADDRESS_V6="${PRIVATE_SUBNET_V6::-4}1"
 
 function detect-ipv4() {
-  ## Detect IPV4
+## Detect IPV4
 if type ping > /dev/null 2>&1; then
     PING="ping -c3 google.com > /dev/null 2>&1"
     else
@@ -127,8 +117,8 @@ else
   fi
 }
 
- ## Decect IPV4
- detect-ipv6
+## Decect IPV4
+detect-ipv6
 
 function test-connectivity-v6() {
   ## Test outward facing IPV6
@@ -145,10 +135,10 @@ function test-connectivity-v6() {
   fi
 }
 
-  ## Get IPV6
-  test-connectivity-v6
+## Get IPV6
+test-connectivity-v6
 
-  ## Detect public interface and pre-fill for the user
+## Detect public interface and pre-fill for the user
   function detect-nic() {
     SERVER_PUB_NIC="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)"
     read -rp "Public interface: " -e -i "$SERVER_PUB_NIC" SERVER_PUB_NIC
@@ -156,7 +146,7 @@ function test-connectivity-v6() {
 
   detect-nic
   
-  ## Determine host port
+## Determine host port
   function set-port() {
     echo "What port do you want WireGuard server to listen to?"
     echo "   1) 51820 (Recommended)"
@@ -428,17 +418,44 @@ fi
   ## Install WireGuard
   install-wireguard
 
-  function check-firewalld() {
-  ## Check if firewalld is exist
-  if [[ `firewalld --help` ]]; then
+## Check iptables
+function check-iptables() {
+## Check if iptables is exist
+if [[ ! `iptables --help` ]]; then
+    IPTABLES_INSTALLED="true"
+  else
+    IPTABLES_INSTALLED="false"
+fi
+}
+
+## Run Iptables
+check-iptables
+
+## Check firewalld
+function check-firewalld() {
+## Check if firewalld is exist
+if [[ `firewalld --help` ]]; then
     FIREWALLD_INSTALLED="true"
   else
     FIREWALLD_INSTALLED="false"
-  fi
-  }
+fi
+}
  
   ## Check firewalld
   check-firewalld
+
+  function install-firewall() {
+  if [ "$IPTABLES_INSTALLED" = "false" ]; then
+    apt-get install iptables-persistent -y
+  elif [ "FIREWALLD_INSTALLED" = "false" ]; then
+    dnf install firewalld -y
+    yum install firewalld -y
+    pacman -Rs firewalld -y
+  fi
+  }
+
+  ## Run Function
+  install-firewall
 
   function install-unbound() {
     if [ "$INSTALL_UNBOUND" = "y" ]; then
@@ -474,7 +491,9 @@ fi
     systemctl stop systemd-resolved
     systemctl disable systemd-resolved
     # Firewall Rule For Unbound
+	if [ "$IPTABLES_INSTALLED" == "true" ]; then
     iptables -A INPUT -s 10.8.0.0/24 -p udp -m udp --dport 53 -m conntrack --ctstate NEW -j ACCEPT
+	fi
   elif [ "$DISTRO" == "Debian" ]; then
     # Install Unbound
     apt-get install unbound unbound-host e2fsprogs -y
@@ -503,7 +522,9 @@ fi
     qname-minimisation: yes
     prefetch-key: yes' > /etc/unbound/unbound.conf
     # Firewall Rule For Unbound
+	if [ "$IPTABLES_INSTALLED" == "true" ]; then
     iptables -A INPUT -s 10.8.0.0/24 -p udp -m udp --dport 53 -m conntrack --ctstate NEW -j ACCEPT
+	fi
   elif [ "$DISTRO" == "Raspbian" ]; then
     # Install Unbound
     apt-get install unbound unbound-host e2fsprogs -y
@@ -532,7 +553,9 @@ fi
     qname-minimisation: yes
     prefetch-key: yes' > /etc/unbound/unbound.conf
     # Firewall Rule For Unbound
+	if [ "$IPTABLES_INSTALLED" == "true" ]; then
     iptables -A INPUT -s 10.8.0.0/24 -p udp -m udp --dport 53 -m conntrack --ctstate NEW -j ACCEPT
+	fi
   elif [[ "$DISTRO" = "CentOS" ]]; then
     # Install Unbound
     yum install unbound unbound-host -y
@@ -589,11 +612,8 @@ fi
     # Setting Client DNS For Unbound On WireGuard
     CLIENT_DNS="10.8.0.1"
     ## Setting correct nameservers for system.
-    chattr -i /etc/resolv.conf
-    sed -i "/nameserver/#nameserver/" /etc/resolv.conf
-    sed -i "/search/#search/" /etc/resolv.conf
+    mv /etc/resolv.conf /etc/resolv.conf.old
     echo "nameserver 127.0.0.1" >> /etc/resolv.conf
-    chattr +i /etc/resolv.conf
 ## Restart unbound
 if pgrep systemd-journal; then
   systemctl enable unbound
@@ -793,15 +813,15 @@ fi
     yum remove wireguard qrencode ntpdate haveged unbound unbound-host -y
   elif [ "$DISTRO" == "Debian" ]; then
     wg-quick down wg0
-    apt-get remove --purge wireguard qrencode ntpdate haveged unbound unbound-host iptables-persistent -y
+    apt-get remove --purge wireguard qrencode ntpdate haveged unbound unbound-host -y
     apt-get autoremove -y
   elif [ "$DISTRO" == "Ubuntu" ]; then
     wg-quick down wg0
-    apt-get remove --purge wireguard qrencode ntpdate haveged unbound unbound-host iptables-persistent -y
+    apt-get remove --purge wireguard qrencode ntpdate haveged unbound unbound-host -y
     apt-get autoremove -y
   elif [ "$DISTRO" == "Raspbian" ]; then
     wg-quick down wg0
-    apt-get remove --purge wireguard qrencode ntpdate haveged unbound unbound-host dirmngr iptables-persistent -y
+    apt-get remove --purge wireguard qrencode ntpdate haveged unbound unbound-host dirmngr -y
     apt-get autoremove -y
   elif [ "$DISTRO" == "Arch" ]; then
     wg-quick down wg0
@@ -822,6 +842,7 @@ fi
     rm -f /etc/unbound/unbound.conf
     rm -f /etc/ntp.conf
     rm -f /etc/default/haveged
+    mv /etc/resolv.conf.old /etc/resolv.conf
     ;;
     4)
     exit
