@@ -95,7 +95,6 @@ if [ ! -f "$WG_CONFIG" ]; then
         read -rp "System public IPV4 address is $SERVER_HOST_V4. Is that correct? [y/n]: " -e -i "$IPV4_SUGGESTION" CONFIRM
         if [ "$CONFIRM" == "n" ]; then
           echo "Aborted. Use environment variable SERVER_HOST_V4 to set the correct public IP address."
-          exit
         fi
       fi
     fi
@@ -129,7 +128,6 @@ if [ ! -f "$WG_CONFIG" ]; then
         read -rp "System public IPV6 address is $SERVER_HOST_V6. Is that correct? [y/n]: " -e -i "$IPV6_SUGGESTION" CONFIRM
         if [ "$CONFIRM" == "n" ]; then
           echo "Aborted. Use environment variable SERVER_HOST_V6 to set the correct public IP address."
-          exit
         fi
       fi
     fi
@@ -146,7 +144,6 @@ if [ ! -f "$WG_CONFIG" ]; then
         read -rp "System public nic address is $SERVER_PUB_NIC. Is that correct? [y/n]: " -e -i "$SERVER_PUB_NIC" CONFIRM
         if [ "$CONFIRM" == "n" ]; then
           echo "Aborted. Use environment variable SERVER_PUB_NIC to set the correct public IP address."
-          exit
         fi
       fi
     fi
