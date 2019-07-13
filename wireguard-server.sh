@@ -421,7 +421,7 @@ if [ ! -f "$WG_CONFIG" ]; then
   ## Check firewalld
   function check-firewalld() {
     ## Check if firewalld is exist
-    if [[ $(firewalld --help) ]]; then
+    if [[ $(firewall-cmd --state) ]]; then
       FIREWALLD_INSTALLED="true"
     else
       FIREWALLD_INSTALLED="false"
