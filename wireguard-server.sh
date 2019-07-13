@@ -1,7 +1,7 @@
 #!/bin/bash
 # Secure WireGuard For CentOS, Debian, Ubuntu, Raspbian, Arch, Fedora, Redhat
 
-## Check Root
+## Check Root Function
 function root-check() {
   if [[ "$EUID" -ne 0 ]]; then
     echo "Hello there non ROOT user, you need to run this as ROOT."
@@ -12,6 +12,7 @@ function root-check() {
 ## Root Check
 root-check
 
+## Checking For Virtualization 
 function virt-check() {
   ## Deny OpenVZ
   if [ "$(systemd-detect-virt)" == "openvz" ]; then
@@ -28,6 +29,7 @@ function virt-check() {
 ## Virtualization Check
 virt-check
 
+## Checking For Tun Device
 function tun-check() {
   if [[ ! -e /dev/net/tun ]]; then
     echo "The TUN device is not available. You need to enable TUN before running this script"
@@ -56,7 +58,7 @@ function dist-check() {
   fi
 }
 
-## Check distro
+## Check Operating System
 dist-check
 
 ## WG Configurator
@@ -100,7 +102,7 @@ if [ ! -f "$WG_CONFIG" ]; then
     fi
   }
 
-  ## Get IPV4
+  ## Test IPV4 Connectivity
   test-connectivity-v4
 
   function detect-ipv6() {
@@ -117,7 +119,7 @@ if [ ! -f "$WG_CONFIG" ]; then
     fi
   }
 
-  ## Decect IPV4
+  ## Test IPV6 Connectivity
   detect-ipv6
 
   function test-connectivity-v6() {
@@ -133,7 +135,7 @@ if [ ! -f "$WG_CONFIG" ]; then
     fi
   }
 
-  ## Get IPV6
+  ## Test IPV6 Connectivity
   test-connectivity-v6
 
   # Detect public interface and pre-fill for the user
@@ -141,7 +143,7 @@ if [ ! -f "$WG_CONFIG" ]; then
     if [ "$SERVER_PUB_NIC" == "" ]; then
       SERVER_PUB_NIC="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)"
       if [ "$INTERACTIVE" == "yes" ]; then
-        read -rp "System public nic address is $SERVER_PUB_NIC. Is that correct? [y/n]: " -e -i "$SERVER_PUB_NIC" CONFIRM
+        read -rp "System public nic address is $SERVER_PUB_NIC. Is that correct? [y/n]: " -e -i y CONFIRM
         if [ "$CONFIRM" == "n" ]; then
           echo "Aborted. Use environment variable SERVER_PUB_NIC to set the correct public IP address."
         fi
