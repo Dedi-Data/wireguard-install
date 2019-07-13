@@ -4,7 +4,7 @@
 ## Check Root
 function root-check() {
   if [[ "$EUID" -ne 0 ]]; then
-    echo "Hello there non ROOT user, you need to run this as ROOT."
+    echo "Sorry, you need to run this script as root user."
     exit
   fi
 }
@@ -59,6 +59,16 @@ function dist-check() {
 ## Check distro
 dist-check
 
+## Check iptables
+function check-iptables() {
+## Check if iptables is exist
+if [ ! $(iptables --help) ]; then
+  echo "This installer requite iptables, Please install iptables and configure it according to your server configurations and run this installer again";
+  # TODO: may be we can install iptables for him !
+  exit
+fi
+}
+
 ## WG Configurator
 WG_CONFIG="/etc/wireguard/wg0.conf"
 if [ ! -f "$WG_CONFIG" ]; then
@@ -84,7 +94,7 @@ if [ ! -f "$WG_CONFIG" ]; then
     fi
   }
 
-  ## Decect IPV4
+  ## Detect IPV4
   detect-ipv4
 
   function test-connectivity-v4() {
@@ -124,11 +134,13 @@ if [ ! -f "$WG_CONFIG" ]; then
     ## Test outward facing IPV6
     if [ "$SERVER_HOST_V6" == "" ]; then
       SERVER_HOST_V6="$(ip -6 addr | grep inet6 | awk '{ print $2}' | cut -d '/' -f1 | grep -v ^::1 | grep -v ^fe80)"
-      if [ "$INTERACTIVE" == "yes" ]; then
+      if [ "$INTERACTIVE" == "yes" ] && [ "$SERVER_HOST_V6" != "" ]; then
         read -rp "System public IPV6 address is $SERVER_HOST_V6. Is that correct? [y/n]: " -e -i "$IPV6_SUGGESTION" CONFIRM
-        if [ "$CONFIRM" == "n" ]; then
+        if [ "$CONFIRM" == "y" ]; then
           echo "Aborted. Use environment variable SERVER_HOST_V6 to set the correct public IP address."
         fi
+      else
+        echo "We couldn't detect your IPV6, So we use your IPV4 as your server address !"
       fi
     fi
   }
@@ -139,6 +151,7 @@ if [ ! -f "$WG_CONFIG" ]; then
   # Detect public interface and pre-fill for the user
   function server-pub-nic() {
     SERVER_PUB_NIC="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)"
+    read -rp "Public interface: " -e -i "$SERVER_PUB_NIC" SERVER_PUB_NIC
   }
 
   # Run The Function
@@ -230,6 +243,7 @@ if [ ! -f "$WG_CONFIG" ]; then
 
   ## What ip version would you like to be available on this VPN?
   function ipvx-select() {
+    if [ "$SERVER_HOST_V6" != "" ]; then
     echo "What IPv do you want to use to connect to WireGuard server?"
     echo "   1) IPv4 (Recommended)"
     echo "   2) IPv6 (Advanced)"
@@ -244,6 +258,9 @@ if [ ! -f "$WG_CONFIG" ]; then
       SERVER_HOST="[$SERVER_HOST_V6]"
       ;;
     esac
+    else
+      SERVER_HOST="$SERVER_HOST_V4"
+    fi
   }
 
   ## IPv4 or IPv6 Selector
@@ -418,6 +435,19 @@ if [ ! -f "$WG_CONFIG" ]; then
   ## Install WireGuard
   install-wireguard
 
+  ## Check firewalld
+  function check-firewalld() {
+    ## Check if firewalld is exist
+    if [[ $(firewalld --help) ]]; then
+      FIREWALLD_INSTALLED="true"
+    else
+      FIREWALLD_INSTALLED="false"
+    fi
+  }
+
+  ## Check firewalld
+  check-firewalld
+
   function install-unbound() {
     if [ "$INSTALL_UNBOUND" = "y" ]; then
       ## Installation Begins Here
@@ -574,20 +604,68 @@ if [ ! -f "$WG_CONFIG" ]; then
     touch $WG_CONFIG && chmod 600 $WG_CONFIG
     ## Set Wireguard settings for this host and first peer.
 
-    echo "# $PRIVATE_SUBNET_V4 $PRIVATE_SUBNET_V6 $SERVER_HOST:$SERVER_PORT $SERVER_PUBKEY $CLIENT_DNS $MTU_CHOICE $NAT_CHOICE $CLIENT_ALLOWED_IP
+    echo -n "# $PRIVATE_SUBNET_V4 $PRIVATE_SUBNET_V6 $SERVER_HOST:$SERVER_PORT $SERVER_PUBKEY $CLIENT_DNS $MTU_CHOICE $NAT_CHOICE $CLIENT_ALLOWED_IP
 [Interface]
 Address = $GATEWAY_ADDRESS_V4/$PRIVATE_SUBNET_MASK_V4,$GATEWAY_ADDRESS_V6/$PRIVATE_SUBNET_MASK_V6
 ListenPort = $SERVER_PORT
 PrivateKey = $SERVER_PRIVKEY
-PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; ip6tables -A FORWARD -i wg0 -j ACCEPT; ip6tables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; iptables -A INPUT -s $PRIVATE_SUBNET_V4 -p udp -m udp --dport 53 -m conntrack --ctstate NEW -j ACCEPT
-PostDown = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; ip6tables -A FORWARD -i wg0 -j ACCEPT; ip6tables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; iptables -A INPUT -s $PRIVATE_SUBNET_V4 -p udp -m udp --dport 53 -m conntrack --ctstate NEW -j ACCEPT
+PostUp = "\
+     
+    "iptables -A FORWARD -i %i -j ACCEPT; "\
+    "iptables -A FORWARD -o %i -j ACCEPT; "\
+    "iptables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
+    "iptables -A INPUT -p udp --dport $SERVER_PORT -j ACCEPT; "\
+    "iptables -A INPUT -s $PRIVATE_SUBNET_V4 -p udp -m udp --dport 53 -m conntrack --ctstate NEW -j ACCEPT; "\
+    >$WG_CONFIG
+    if [ "$SERVER_HOST_V6" != '' ]; then
+      echo -n \
+      "ip6tables -A FORWARD -i %i -j ACCEPT; "\
+      "ip6tables -A FORWARD -o %i -j ACCEPT; "\
+      "ip6tables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
+      "ip6tables -A INPUT -p udp --dport $SERVER_PORT -j ACCEPT; "\
+      "ip6tables -A INPUT -s $PRIVATE_SUBNET_V6 -p udp -m udp --dport 53 -m conntrack --ctstate NEW -j ACCEPT; "\
+      >>$WG_CONFIG
+    fi
+    if [ "$FIREWALLD_INSTALLED" == "true" ]; then
+      echo -n \
+      "firewall-cmd --add-service=dns; "\
+      "firewall-cmd --zone=public --add-port=$SERVER_PORT/udp; "\
+      "firewall-cmd --zone=trusted --add-source=$PRIVATE_SUBNET_V4; "\
+      "firewall-cmd --zone=trusted --add-source=$PRIVATE_SUBNET_V6; "\
+      >>$WG_CONFIG
+    fi
+    echo -n "
+PostDown = "\
+    "iptables -D FORWARD -i %i -j ACCEPT; "\
+    "iptables -D FORWARD -o %i -j ACCEPT; "\
+    "iptables -t nat -D POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
+    "iptables -D INPUT -p udp --dport $SERVER_PORT -j ACCEPT; "\
+    "iptables -D INPUT -s $PRIVATE_SUBNET_V4 -p udp -m udp --dport 53 -m conntrack --ctstate NEW -j ACCEPT ;"\
+    >>$WG_CONFIG
+    if [ "$SERVER_HOST_V6" != '' ]; then
+      echo -n \
+      "ip6tables -D FORWARD -i %i -j ACCEPT; "\
+      "ip6tables -D FORWARD -o %i -j ACCEPT; "\
+      "ip6tables -t nat -D POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
+      "ip6tables -D INPUT -p udp --dport $SERVER_PORT -j ACCEPT; "\
+      "ip6tables -D INPUT -s $PRIVATE_SUBNET_V6 -p udp -m udp --dport 53 -m conntrack --ctstate NEW -j ACCEPT; "\
+      >>$WG_CONFIG
+    fi
+    if [ "$FIREWALLD_INSTALLED" == "true" ]; then
+      echo -n \
+      "firewall-cmd --zone=public --remove-port=$SERVER_PORT/udp; "\
+      "firewall-cmd --zone=trusted --remove-source=$PRIVATE_SUBNET_V4; "\
+      "firewall-cmd --zone=trusted --remove-source=$PRIVATE_SUBNET_V6; "\
+      >>$WG_CONFIG
+    fi
+    echo "
 SaveConfig = false
 # $CLIENT_NAME start
 [Peer]
 PublicKey = $CLIENT_PUBKEY
 PresharedKey = $PRESHARED_KEY
 AllowedIPs = $CLIENT_ADDRESS_V4/32,$CLIENT_ADDRESS_V6/128
-# $CLIENT_NAME end" >$WG_CONFIG
+# $CLIENT_NAME end" >> $WG_CONFIG
 
     echo "# $CLIENT_NAME
 [Interface]
