@@ -95,6 +95,7 @@ if [ ! -f "$WG_CONFIG" ]; then
         read -rp "System public IPV4 address is $SERVER_HOST_V4. Is that correct? [y/n]: " -e -i "$IPV4_SUGGESTION" CONFIRM
         if [ "$CONFIRM" == "n" ]; then
           echo "Aborted. Use environment variable SERVER_HOST_V4 to set the correct public IP address."
+          exit
         fi
       fi
     fi
@@ -128,6 +129,7 @@ if [ ! -f "$WG_CONFIG" ]; then
         read -rp "System public IPV6 address is $SERVER_HOST_V6. Is that correct? [y/n]: " -e -i "$IPV6_SUGGESTION" CONFIRM
         if [ "$CONFIRM" == "n" ]; then
           echo "Aborted. Use environment variable SERVER_HOST_V6 to set the correct public IP address."
+          exit
         fi
       fi
     fi
@@ -138,8 +140,16 @@ if [ ! -f "$WG_CONFIG" ]; then
 
   # Detect public interface and pre-fill for the user
   function server-pub-nic() {
-    SERVER_PUB_NIC="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)"
-    read -rp "Public interface: " -e -i "$SERVER_PUB_NIC" SERVER_PUB_NIC
+    if [ "$SERVER_PUB_NIC" == "" ]; then
+      SERVER_PUB_NIC="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)"
+      if [ "$INTERACTIVE" == "yes" ]; then
+        read -rp "System public nic address is $SERVER_PUB_NIC. Is that correct? [y/n]: " -e -i "$SERVER_PUB_NIC" CONFIRM
+        if [ "$CONFIRM" == "n" ]; then
+          echo "Aborted. Use environment variable SERVER_PUB_NIC to set the correct public IP address."
+          exit
+        fi
+      fi
+    fi
   }
 
   # Run The Function
