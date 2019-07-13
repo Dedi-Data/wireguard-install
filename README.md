@@ -10,9 +10,3 @@ bash wireguard-server.sh
 wget https://raw.githubusercontent.com/Dedi-Data/wireguard-install/master/wireguard-client.sh
 bash wireguard-client.sh
 ```
-### Wireguard Multihop (dosen't fucking work) (DEV)
-```
-wget https://raw.githubusercontent.com/Dedi-Data/wireguard-install/master/wireguard-multihop.sh
-bash wireguard-client.sh
-```
-
