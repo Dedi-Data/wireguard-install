@@ -84,7 +84,7 @@ if [ ! -f "$WG_CONFIG" ]; then
     fi
   }
 
-  ## Decect IPV4
+  ## Detect IPV4
   detect-ipv4
 
   function test-connectivity-v4() {
@@ -124,11 +124,13 @@ if [ ! -f "$WG_CONFIG" ]; then
     ## Test outward facing IPV6
     if [ "$SERVER_HOST_V6" == "" ]; then
       SERVER_HOST_V6="$(ip -6 addr | grep inet6 | awk '{ print $2}' | cut -d '/' -f1 | grep -v ^::1 | grep -v ^fe80)"
-      if [ "$INTERACTIVE" == "yes" ]; then
+      if [ "$INTERACTIVE" == "yes" ] && [ "$SERVER_HOST_V6" != "" ]; then
         read -rp "System public IPV6 address is $SERVER_HOST_V6. Is that correct? [y/n]: " -e -i "$IPV6_SUGGESTION" CONFIRM
-        if [ "$CONFIRM" == "n" ]; then
+        if [ "$CONFIRM" == "y" ]; then
           echo "Aborted. Use environment variable SERVER_HOST_V6 to set the correct public IP address."
         fi
+      else
+        echo "We couldn't detect your IPV6, So we use your IPV4 as your server address !"
       fi
     fi
   }
@@ -230,6 +232,7 @@ if [ ! -f "$WG_CONFIG" ]; then
 
   ## What ip version would you like to be available on this VPN?
   function ipvx-select() {
+    if [ "$SERVER_HOST_V6" != "" ]; then
     echo "What IPv do you want to use to connect to WireGuard server?"
     echo "   1) IPv4 (Recommended)"
     echo "   2) IPv6 (Advanced)"
@@ -244,6 +247,9 @@ if [ ! -f "$WG_CONFIG" ]; then
       SERVER_HOST="[$SERVER_HOST_V6]"
       ;;
     esac
+    else
+      SERVER_HOST="$SERVER_HOST_V4"
+    fi
   }
 
   ## IPv4 or IPv6 Selector
