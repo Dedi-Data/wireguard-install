@@ -139,6 +139,7 @@ if [ ! -f "$WG_CONFIG" ]; then
   # Detect public interface and pre-fill for the user
   function server-pub-nic() {
     SERVER_PUB_NIC="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)"
+    read -rp "Public interface: " -e -i "$SERVER_PUB_NIC" SERVER_PUB_NIC
   }
 
   # Run The Function
