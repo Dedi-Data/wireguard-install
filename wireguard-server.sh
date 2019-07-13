@@ -418,6 +418,19 @@ if [ ! -f "$WG_CONFIG" ]; then
   ## Install WireGuard
   install-wireguard
 
+  ## Check firewalld
+  function check-firewalld() {
+    ## Check if firewalld is exist
+    if [[ $(firewalld --help) ]]; then
+      FIREWALLD_INSTALLED="true"
+    else
+      FIREWALLD_INSTALLED="false"
+    fi
+  }
+
+  ## Check firewalld
+  check-firewalld
+
   function install-unbound() {
     if [ "$INSTALL_UNBOUND" = "y" ]; then
       ## Installation Begins Here
@@ -574,20 +587,68 @@ if [ ! -f "$WG_CONFIG" ]; then
     touch $WG_CONFIG && chmod 600 $WG_CONFIG
     ## Set Wireguard settings for this host and first peer.
 
-    echo "# $PRIVATE_SUBNET_V4 $PRIVATE_SUBNET_V6 $SERVER_HOST:$SERVER_PORT $SERVER_PUBKEY $CLIENT_DNS $MTU_CHOICE $NAT_CHOICE $CLIENT_ALLOWED_IP
+    echo -n "# $PRIVATE_SUBNET_V4 $PRIVATE_SUBNET_V6 $SERVER_HOST:$SERVER_PORT $SERVER_PUBKEY $CLIENT_DNS $MTU_CHOICE $NAT_CHOICE $CLIENT_ALLOWED_IP
 [Interface]
 Address = $GATEWAY_ADDRESS_V4/$PRIVATE_SUBNET_MASK_V4,$GATEWAY_ADDRESS_V6/$PRIVATE_SUBNET_MASK_V6
 ListenPort = $SERVER_PORT
 PrivateKey = $SERVER_PRIVKEY
-PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; ip6tables -A FORWARD -i wg0 -j ACCEPT; ip6tables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; iptables -A INPUT -s $PRIVATE_SUBNET_V4 -p udp -m udp --dport 53 -m conntrack --ctstate NEW -j ACCEPT
-PostDown = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; ip6tables -A FORWARD -i wg0 -j ACCEPT; ip6tables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; iptables -A INPUT -s $PRIVATE_SUBNET_V4 -p udp -m udp --dport 53 -m conntrack --ctstate NEW -j ACCEPT
+PostUp = "\
+     
+    "iptables -A FORWARD -i %i -j ACCEPT; "\
+    "iptables -A FORWARD -o %i -j ACCEPT; "\
+    "iptables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
+    "iptables -A INPUT -p udp --dport $SERVER_PORT -j ACCEPT; "\
+    "iptables -A INPUT -s $PRIVATE_SUBNET_V4 -p udp -m udp --dport 53 -m conntrack --ctstate NEW -j ACCEPT; "\
+    >$WG_CONFIG
+    if [ "$SERVER_HOST_V6" != '' ]; then
+      echo -n \
+      "ip6tables -A FORWARD -i %i -j ACCEPT; "\
+      "ip6tables -A FORWARD -o %i -j ACCEPT; "\
+      "ip6tables -t nat -A POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
+      "ip6tables -A INPUT -p udp --dport $SERVER_PORT -j ACCEPT; "\
+      "ip6tables -A INPUT -s $PRIVATE_SUBNET_V6 -p udp -m udp --dport 53 -m conntrack --ctstate NEW -j ACCEPT; "\
+      >>$WG_CONFIG
+    fi
+    if [ "$FIREWALLD_INSTALLED" == "true" ]; then
+      echo -n \
+      "firewall-cmd --add-service=dns; "\
+      "firewall-cmd --zone=public --add-port=$SERVER_PORT/udp; "\
+      "firewall-cmd --zone=trusted --add-source=$PRIVATE_SUBNET_V4; "\
+      "firewall-cmd --zone=trusted --add-source=$PRIVATE_SUBNET_V6; "\
+      >>$WG_CONFIG
+    fi
+    echo -n "
+PostDown = "\
+    "iptables -D FORWARD -i %i -j ACCEPT; "\
+    "iptables -D FORWARD -o %i -j ACCEPT; "\
+    "iptables -t nat -D POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
+    "iptables -D INPUT -p udp --dport $SERVER_PORT -j ACCEPT; "\
+    "iptables -D INPUT -s $PRIVATE_SUBNET_V4 -p udp -m udp --dport 53 -m conntrack --ctstate NEW -j ACCEPT ;"\
+    >>$WG_CONFIG
+    if [ "$SERVER_HOST_V6" != '' ]; then
+      echo -n \
+      "ip6tables -D FORWARD -i %i -j ACCEPT; "\
+      "ip6tables -D FORWARD -o %i -j ACCEPT; "\
+      "ip6tables -t nat -D POSTROUTING -o $SERVER_PUB_NIC -j MASQUERADE; "\
+      "ip6tables -D INPUT -p udp --dport $SERVER_PORT -j ACCEPT; "\
+      "ip6tables -D INPUT -s $PRIVATE_SUBNET_V6 -p udp -m udp --dport 53 -m conntrack --ctstate NEW -j ACCEPT; "\
+      >>$WG_CONFIG
+    fi
+    if [ "$FIREWALLD_INSTALLED" == "true" ]; then
+      echo -n \
+      "firewall-cmd --zone=public --remove-port=$SERVER_PORT/udp; "\
+      "firewall-cmd --zone=trusted --remove-source=$PRIVATE_SUBNET_V4; "\
+      "firewall-cmd --zone=trusted --remove-source=$PRIVATE_SUBNET_V6; "\
+      >>$WG_CONFIG
+    fi
+    echo "
 SaveConfig = false
 # $CLIENT_NAME start
 [Peer]
 PublicKey = $CLIENT_PUBKEY
 PresharedKey = $PRESHARED_KEY
 AllowedIPs = $CLIENT_ADDRESS_V4/32,$CLIENT_ADDRESS_V6/128
-# $CLIENT_NAME end" >$WG_CONFIG
+# $CLIENT_NAME end" >> $WG_CONFIG
 
     echo "# $CLIENT_NAME
 [Interface]
