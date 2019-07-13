@@ -4,7 +4,7 @@
 ## Check Root
 function root-check() {
   if [[ "$EUID" -ne 0 ]]; then
-    echo "Hello there non ROOT user, you need to run this as ROOT."
+    echo "Sorry, you need to run this script as root user."
     exit
   fi
 }
@@ -58,6 +58,16 @@ function dist-check() {
 
 ## Check distro
 dist-check
+
+## Check iptables
+function check-iptables() {
+## Check if iptables is exist
+if [ ! $(iptables --help) ]; then
+  echo "This installer requite iptables, Please install iptables and configure it according to your server configurations and run this installer again";
+  # TODO: may be we can install iptables for him !
+  exit
+fi
+}
 
 ## WG Configurator
 WG_CONFIG="/etc/wireguard/wg0.conf"
