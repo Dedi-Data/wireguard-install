@@ -728,11 +728,11 @@ PublicKey = $SERVER_PUBKEY" >"/etc/wireguard/clients"/"$NEW_CLIENT_NAME"-wg0.con
       rm -rf /etc/wireguard/clients
       rm -rf /etc/unbound
       rm -rf /etc/qrencode
-      rm /etc/sysctl.d/wireguard.conf
-      rm /etc/wireguard/wg0.conf
-      rm /etc/unbound/unbound.conf
-      rm /etc/ntp.conf
-      rm /etc/default/haveged
+      rm -f /etc/sysctl.d/wireguard.conf
+      rm -f /etc/wireguard/wg0.conf
+      rm -f /etc/unbound/unbound.conf
+      rm -f /etc/ntp.conf
+      rm -f /etc/default/haveged
       mv /etc/resolv.conf.old /etc/resolv.conf
       ;;
     4)
