@@ -61,13 +61,14 @@ dist-check
 
 ## Check iptables
 function check-iptables() {
-## Check if iptables is exist
-if [ ! `iptables --help` ]; then
-  echo "This installer requite iptables, Please install iptables and configure it according to your server configurations and run this installer again";
-  # TODO: may be we can install iptables for him !
-  exit
-fi
+	## Check if iptables is exist
+	if ! [ -x "$(command -v iptables)" ]; then
+		echo "This installer requite iptables, Please install iptables and configure it according to your server configurations and run this installer again";
+		# TODO: may be we can install iptables for him !
+		exit
+	fi
 }
+check-iptables
 
 ## WG Configurator
   WG_CONFIG="/etc/wireguard/wg0.conf"
